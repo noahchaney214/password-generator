@@ -4,61 +4,6 @@ import requests
 import random
 
 
-
-class App(ft.UserControl):
-    def __init__(self, page : ft.Page):
-        super().__init__()
-        self.page = page
-        self.params = {
-            "random": True,
-            "special_chars": True,
-            "caps": True,
-            "nums": True,
-            "num_words": 4,
-            "num_chars": 16,
-            "camel": True,
-            'delimiter': "words",
-        }
-
-    def flip_random(self):
-        is_random = self.params["random"]
-        self.params["random"] = not self.params["random"]
-        if is_random:
-            pass
-        else:
-            pass
-
-
-
-    def build(self):
-        
-
-        tb3 = ft.TextField(label="Generated Password", read_only=True, value='hello')
-        btn_refresh = ft.TextButton(icon=ft.icons.REFRESH)
-        simple_toggle = ft.Switch(label="Memorable Password" if not get_random(self.app_state) else "Random Password", value=False, on_change=toggle_random(self.app_state))
-        num_words = ft.Slider(value=4, min=2, max=8, label="")
-        caps = ft.Switch(label="Capital Letters")
-
-
-        generate_password(self.params)
-
-        self._content = ft.SafeArea(
-            content=ft.ListView([
-                ft.Text("Hello World"),
-                ft.Row([
-                    tb3,
-                    btn_refresh
-                ]),
-                ft.Row([
-                    simple_toggle,
-                    num_words if get_random(self.page) else ft.Text("")
-                ])
-            ]),
-        )
-        return self._content
-
-
-
 def camel_case(word):
     res = []
     res[:] = word
@@ -158,9 +103,6 @@ def generate_password(params):
                         password += a_low[random.randint(0, len(a_low)-1)]
 
     else:
-        delims = special_chars
-        if delimiter == "numbers":
-            delims = numbers
 
         for word in words:
             if not params["lower"]:
@@ -176,47 +118,168 @@ def generate_password(params):
             if words[-1].lower() == word.lower():
                 password += word
             else:
-                password += word + delims[random.randint(0, len(delims)-1)]
+                password += word + delimiter[random.randint(0, len(delimiter)-1)]
 
-    print(password)
+    return password
 
 
 
-def toggle_random(page):
-    random = page.client_storage.get("random")
-    if random:
-        page.client_storage.set("random", False)
-    else: 
-        page.client_storage.set("random", True)
+class SwitchOption(ft.Row):
+    def __init__(self, text_options, page):
+        super().__init__()
+        self.text = text_options
+        self.page = page
 
-    page.update()
+        
 
-def get_random(page):
-    return page.client_storage.get("random")
+        self.controls = [
+            ft.Container(
+                content = self.txt,
+                alignment=ft.alignment.center_left,
+                width = 200,
+                height = 50
+            ),
+            ft.Container(
+                content = self.switch,
+                width = 200,
+                alignment=ft.alignment.center_right
+            )
+        ]
+
+    
 
 
 
 def main(page: ft.Page):
     page.title = "Password Generator"
-    page.vertical_alignment   = 'center'
-    page.horizontal_alignment = 'center'
+    page.horizontal_alignment = ft.MainAxisAlignment.CENTER
+    page.window_width = 400        
+    page.window_height = 400       
+    page.window_resizable = False
 
+    
+    isRandom = False
+    # random toggle change state
+    def change_state():
+        if random_switch.value:
+            txt.value = "Random Password"
+        else: 
+            txt.value = "Memorable Password"
 
-    page.add(App(page))
-    params = {
-        "random": False,
+        isRandom = random_switch.value
 
-        "special_chars": True,
-        "caps": False,
-        "nums": True,
-        "num_chars": 12,
+        page.update()
 
-        "num_words": 8,
-        "lower": False,
-        "delimiter": "special"
-    }
+    # generate the password 
+    def get_pass(e):
+        params = {
+            "random": False,
 
-    generate_password(params)
+            "special_chars": True,
+            "caps": False,
+            "nums": True,
+            "num_chars": 12,
+
+            "num_words": 8,
+            "lower": False,
+            "delimiter": "special"
+        }
+        password = generate_password(params)
+        pass_field.value = password
+        page.update()
+
+    # where the generated password will be
+    pass_field = ft.TextField(adaptive=True, label="Generated Password", read_only=True)
+    
+    # Manage Random/Memorable Password Toggle
+    txt = ft.Text("Memorable Password")
+    random_switch = ft.Switch(width=150, on_change=lambda a: change_state())
+    random_switch_row = ft.Row([
+        ft.Container(
+            content = txt,
+            alignment=ft.alignment.center_left,
+            width = 200,
+            height = 50
+        ),
+        ft.Container(
+            content = random_switch,
+            width = 200,
+            alignment=ft.alignment.center_right
+        )
+    ])
+
+    # special character toggle 
+    on_off = "off"
+    
+
+    def toggle_special():
+        global on_off
+        if special_switch.value:
+            on_text.value = f"Special Characters: On"
+        else:
+            on_text.value = f"Special Characters: Off"
+        page.update()
+
+    on_text = ft.Text("Special Characters: Off")
+    special_switch = ft.Switch(on_change=lambda a: toggle_special())
+    special_chars = ft.Row([
+        ft.Container(
+            content=on_text,
+            width = 154,
+            alignment=ft.alignment.center_left
+        ),
+        ft.Container(
+            content = special_switch,
+            width = 200,
+            alignment=ft.alignment.center_right
+        )
+    ])
+
+    def dropdown_change(e):
+        print(e.control.value)
+
+    opts = ["Numbers", "Spaces", "Hyphens", "Colons", "Special Characters", "Numbers and Special Characters", "Commas", "Underscores"]
+    opts = [ft.dropdown.Option(x) for x in opts]
+    delimiter = ft.Row([
+        ft.Container(
+            content=ft.Text("Delimiter: "),
+            width = 200
+        ),
+        ft.Container(
+            
+            content = ft.Dropdown(
+                on_change=dropdown_change,
+                options=opts,
+                value=opts[0],
+                width=150,
+                alignment=ft.alignment.top_left
+            ),
+            width= 150,
+        )
+    ])
+
+    
+
+    page.add(
+        ft.SafeArea(
+            content=ft.ListView([
+                ft.Container(
+                    content=ft.Row(controls=[
+                        pass_field,
+                        ft.FloatingActionButton(icon=ft.icons.REFRESH)
+                    ]),
+                    height = 100
+                ),
+                random_switch_row,
+                ft.Divider(height=9, thickness=3),
+                
+                delimiter,
+                special_chars,
+
+            ]),
+        )
+    )
+
 
 if __name__ == '__main__':   
     ft.app(main)
