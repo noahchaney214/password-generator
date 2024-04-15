@@ -8,7 +8,6 @@ def camel_case(word):
     res = []
     res[:] = word
     res[0] = res[0].upper()
-
     return ''.join(res)
 
 def get_random_words(num_words):
@@ -21,6 +20,30 @@ def get_random_words(num_words):
     else:
         print(f"Error: Unable to fetch random words. Status code: {response.status_code}")
         return None
+    
+def get_delim(delimiter) -> str:
+    special_chars = '[@_!#$%^&*()<>?/\\|}{~:]'
+    match delimiter:
+        case "Numbers":
+            return str(random.randint(1, 9))
+        case "Spaces":
+            return ' '
+        case "Hyphens":
+            return '-'
+        case "Colons":
+            return ':'
+        case "Special Characters":
+            return special_chars[random.randint(0, len(special_chars)-1)]
+        case "Numbers and Special Characters":
+            coin_flip = random.randint(0, 1)
+            return special_chars[random.randint(0, len(special_chars)-1)] if bool(coin_flip) else str(random.randint(1, 9))
+        case "Commas":
+            return ','
+        case "Underscores":
+            return '_'
+        case None:
+            return ''
+
 
 def generate_password(params):
     import re
@@ -44,7 +67,7 @@ def generate_password(params):
     if random_:
         for i in range(num_chars):
             if use_special:
-                if caps:
+                if caps == "Capitalise":
                     if nums:
                         coin_flip = random.randint(0,2)
                         match coin_flip:
@@ -106,50 +129,21 @@ def generate_password(params):
 
         for word in words:
             if not params["lower"]:
-                if caps:
+                if caps == "Capitalise":
                     coin_flip = bool(random.randint(0,1))
                     if coin_flip:
                         word = word.upper()
-                else:
+                elif caps == "Camel Case":
                     word = camel_case(word)
-
-            
             
             if words[-1].lower() == word.lower():
-                password += word
+                password += word + (str(random.randint(0, 9)) if params["include_nums"] else '')
             else:
-                password += word + delimiter[random.randint(0, len(delimiter)-1)]
+                password += word + (str(random.randint(0, 9)) if params["include_nums"] else '') + get_delim(delimiter)
 
     return password
 
-
-
-class SwitchOption(ft.Row):
-    def __init__(self, text_options, page):
-        super().__init__()
-        self.text = text_options
-        self.page = page
-
-        
-
-        self.controls = [
-            ft.Container(
-                content = self.txt,
-                alignment=ft.alignment.center_left,
-                width = 200,
-                height = 50
-            ),
-            ft.Container(
-                content = self.switch,
-                width = 200,
-                alignment=ft.alignment.center_right
-            )
-        ]
-
-    
-
-
-
+isRandom = False
 def main(page: ft.Page):
     page.title = "Password Generator"
     page.horizontal_alignment = ft.MainAxisAlignment.CENTER
@@ -157,33 +151,22 @@ def main(page: ft.Page):
     page.window_height = 400       
     page.window_resizable = False
 
-    
-    isRandom = False
-    # random toggle change state
-    def change_state():
-        if random_switch.value:
-            txt.value = "Random Password"
-        else: 
-            txt.value = "Memorable Password"
+    params = {
+        "random": False,
 
-        isRandom = random_switch.value
+        "special_chars": True,
+        "caps": "Lower",
+        "nums": True,
+        "num_chars": 12,
 
-        page.update()
+        "num_words": 4,
+        "include_nums": False,
+        "lower": False,
+        "delimiter": "Numbers"
+    }
 
     # generate the password 
     def get_pass(e):
-        params = {
-            "random": False,
-
-            "special_chars": True,
-            "caps": False,
-            "nums": True,
-            "num_chars": 12,
-
-            "num_words": 8,
-            "lower": False,
-            "delimiter": "special"
-        }
         password = generate_password(params)
         pass_field.value = password
         page.update()
@@ -207,20 +190,17 @@ def main(page: ft.Page):
             alignment=ft.alignment.center_right
         )
     ])
-
-    # special character toggle 
-    on_off = "off"
     
-
     def toggle_special():
         global on_off
         if special_switch.value:
-            on_text.value = f"Special Characters: On"
+            on_text.value = f"Special Characters"
         else:
-            on_text.value = f"Special Characters: Off"
+            on_text.value = f"Special Characters"
+        params["special_characters"] = special_switch.value
         page.update()
 
-    on_text = ft.Text("Special Characters: Off")
+    on_text = ft.Text("Special Characters")
     special_switch = ft.Switch(on_change=lambda a: toggle_special())
     special_chars = ft.Row([
         ft.Container(
@@ -236,7 +216,7 @@ def main(page: ft.Page):
     ])
 
     def dropdown_change(e):
-        print(e.control.value)
+        params["delimiter"] = e.control.value
 
     opts = ["Numbers", "Spaces", "Hyphens", "Colons", "Special Characters", "Numbers and Special Characters", "Commas", "Underscores"]
     opts = [ft.dropdown.Option(x) for x in opts]
@@ -250,7 +230,7 @@ def main(page: ft.Page):
             content = ft.Dropdown(
                 on_change=dropdown_change,
                 options=opts,
-                value=opts[0],
+                value="Numbers",
                 width=150,
                 alignment=ft.alignment.top_left
             ),
@@ -258,7 +238,161 @@ def main(page: ft.Page):
         )
     ])
 
+ 
+    # random toggle change state
+    def change_state():
+        global isRandom
     
+        if random_switch.value:
+            txt.value = "Random Password"
+        else: 
+            txt.value = "Memorable Password"
+
+        isRandom = random_switch.value
+        
+        params["random"] = random_switch.value
+
+        change_options()
+
+        page.update()
+
+    
+    def change_count(e):
+        if isRandom:
+            e.control.min = 4
+            e.control.max = 64
+            e.control.divisions = 60
+            count_txt.value = f"{int(e.control.value)} characters"
+            params["num_chars"] = int(e.control.value)
+        else:
+            e.control.min = 2
+            e.control.max = 8
+            e.control.divisions = 6
+            count_txt.value = f"{int(e.control.value)} words"
+            params["num_words"] = int(e.control.value)
+        page.update()
+
+    count_txt = ft.Text("4 words")
+
+    count = ft.Row([
+        ft.Container(
+            content=count_txt,
+            width=100
+        ),
+        ft.Container(
+            content = ft.Slider(
+                value=4,
+                min=2, 
+                max=8, 
+                divisions=6, 
+                label="{value}",
+                on_change=change_count
+            ),
+            width=275
+        )
+    ])
+
+    # capitalize switch for memorable password
+    def capitalise(e):
+        value = ""
+        if e.control.value == 0:
+            value = "Lower"
+        elif e.control.value == 1:
+            value = "Capitalise"
+        else:
+            value = "Camel Case"
+        e.control.label = value
+        capitalize_txt.value = value
+        params["caps"] = value
+        page.update()
+
+    capitalize_txt = ft.Text("Capitalise")
+    capitalize = ft.Row([
+        ft.Container(
+            content=capitalize_txt,
+            width=154
+        ),
+        ft.Container(
+            content=ft.Slider(
+                min=0,
+                max=2,
+                divisions=2,
+                value=1,
+                label=capitalize_txt.value,
+                on_change=capitalise
+            ),
+            width=200,
+            alignment=ft.alignment.center_right
+        )
+    ])
+
+
+    # capitals switch for random password
+    def capitals_change(e):
+        params["caps"] = e.control.value
+        page.update()
+
+    capitals = ft.Row([
+        ft.Container(
+            content=ft.Text("Capital Letters"),
+            width=154
+        ),
+        ft.Container(
+            content=ft.Switch(
+                on_change=capitals_change
+            ),
+            width=200,
+            alignment=ft.alignment.center_right
+        )
+    ])
+
+
+    # include numbers switch for both password types
+    def include_nums(e):
+        params["include_nums"] = e.control.value
+        params["nums"] = e.control.value
+        page.update()
+
+    include = ft.Row([
+        ft.Container(
+            content=ft.Text("Include Numbers"),
+            width=154
+        ),
+        ft.Container(
+            content=ft.Switch(
+                on_change=include_nums
+            ),
+            width=200,
+            alignment=ft.alignment.center_right
+        )
+    ])
+
+    
+    memorable = ft.ListView([
+        count,
+        delimiter,
+        capitalize,
+        include
+    ])
+
+    random_pass = ft.ListView([
+        count,
+        special_chars,
+        capitals,
+        include
+    ])
+    global options
+    options = memorable
+
+    def change_options():
+        
+        global options
+        if isRandom:  # Check if the random switch is toggled
+            options = random_pass
+        else:
+            options = memorable
+        page.update()
+
 
     page.add(
         ft.SafeArea(
@@ -266,16 +400,13 @@ def main(page: ft.Page):
                 ft.Container(
                     content=ft.Row(controls=[
                         pass_field,
-                        ft.FloatingActionButton(icon=ft.icons.REFRESH)
+                        ft.FloatingActionButton(icon=ft.icons.REFRESH, on_click=get_pass)
                     ]),
                     height = 100
                 ),
                 random_switch_row,
                 ft.Divider(height=9, thickness=3),
-                
-                delimiter,
-                special_chars,
-
+                options
             ]),
         )
     )
